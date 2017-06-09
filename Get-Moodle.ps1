@@ -24,7 +24,7 @@ if (-Not $(Get-Module 7Zip4Powershell))
             $BackupFile
         )
         $SiteName = $(Get-Item $BackupFile).BaseName
-        Expand-TarGZ -Source $BackupFile -Destination "$PSScriptRoot\Target\$SiteName"
+        Expand-TarGZ -Source $BackupFile -Destination "$PSScriptRoot\Target\$SiteName\RawBackup"
     }
 
     Function Get-ParsedMoodleSite
@@ -36,7 +36,9 @@ if (-Not $(Get-Module 7Zip4Powershell))
 
         Add-Member -NotePropertyName "Files" -NotePropertyvalue $([xml]$(Get-Content "$UnpackedBackupDirectory\Files.xml")).files.file -InputObject $MoodleBackup
 
-        $Sections = Foreach($Section in $MoodleBackup.contents.sections.section)
+        $Sections = @{} 
+        
+        Foreach($Section in $MoodleBackup.contents.sections.section)
         {
             $fileIDs = $([xml]$(Get-Content "$UnpackedBackupDirectory\$($section.directory)\inforef.xml")).inforef.fileref.file
 
@@ -47,11 +49,8 @@ if (-Not $(Get-Module 7Zip4Powershell))
             Add-Member -NotePropertyName "Files" -NotePropertyvalue $Files -InputObject $section
 
 
-            $section
+           $Sections[$section.sectionid] = $section
         }
-
-
-        Add-Member -NotePropertyName "Sections"  -InputObject $MoodleBackup -NotePropertyvalue $Sections
 
         $Activities = Foreach($Activity in $MoodleBackup.contents.activities.activity)
         {
@@ -63,10 +62,17 @@ if (-Not $(Get-Module 7Zip4Powershell))
             }
             Add-Member -NotePropertyName "Files" -NotePropertyvalue $Files -InputObject $Activity
             
-
-            $Activity
+            If (-Not [bool]($Sections[$Activity.sectionid].PSobject.Properties.name -match "Activities")) 
+            {
+                Add-Member -NotePropertyName "Activities"  -InputObject  $Sections[$Activity.sectionid] -NotePropertyvalue @()
+            }
+            $Sections[$Activity.sectionid].Activities += $Activity
         }
-        Add-Member -NotePropertyName "Activities"  -InputObject $MoodleBackup -NotePropertyvalue $Activities
+        
+
+
+        Add-Member -NotePropertyName "Sections"  -InputObject $MoodleBackup -NotePropertyvalue $($Sections.Values)
+       
 
         $MoodleBackup
     }
@@ -88,52 +94,54 @@ if (-Not $(Get-Module 7Zip4Powershell))
             }
             Foreach ($File in $Section.files) 
             {
-                
-                $Hash2 = $($File.contenthash).substring(0,2)
-                $Source = "$UnpackedBackupDirectory\files\$Hash2\$($File.contenthash)"
-                $Destination = "$SectionTargetDir\$($file.filename)"
-                Write-Host -ForegroundColor Cyan "Copying $Destination"
-                try{
-                     Copy-Item -Path $Source -Destination $Destination -ErrorAction SilentlyContinue
-                }
-                catch {
-                    Write-Host "Couldn't copy file: $($File.filename)"
-                }
-               
-            }
-        }
-        Foreach ($Activity in $Site.Activities)
-        {
-            Write-Host -ForegroundColor Green "Starting Activity: $($Activity.Title) with $($Activity.Files.Count) Files"
-            $ActivityTargetDir = "$TargetDirectory\Activities\$($Activity.Title)"
-            if (-Not $(Test-Path $ActivityTargetDir))
-            {
-                New-Item -ItemType Directory -Path $ActivityTargetDir | Out-Null
-            }
-            Foreach ($File in $Activity.files) 
-            {
-                
-                $Hash2 = $($File.contenthash).substring(0,2)
-                $Source = "$UnpackedBackupDirectory\files\$Hash2\$($File.contenthash)"
-                $Destination = "$ActivityTargetDir\$($file.filename)"
-                Write-Host -ForegroundColor Cyan "Copying $Destination"
-                try{
-                     Copy-Item -Path $Source -Destination $Destination -ErrorAction SilentlyContinue
-                }
-                catch {
-                    Write-Host "Couldn't copy file: $($File.filename)"
+                if ($File.Filename -ne ".")
+                {
+                    $Hash2 = $($File.contenthash).substring(0,2)
+                    $Source = "$UnpackedBackupDirectory\files\$Hash2\$($File.contenthash)"
+                    $Destination = "$SectionTargetDir\$($file.filename)"
+                    Write-Host -ForegroundColor Cyan "Copying $Destination"
+                    try{
+                        Copy-Item -Path $Source -Destination $Destination -ErrorAction Stop
+                    }
+                    catch {
+                        Write-Error "Couldn't copy file: $($file.filename): $_"
+                    }
                 }
                
             }
+            Foreach ($Activity in $Section.Activities)
+            {
+                Write-Host -ForegroundColor Green "Starting Activity: $($Activity.Title) with $($Activity.Files.Count) Files"
+                $ActivityTargetDir = "$SectionTargetDir\Activities\$($Activity.Title)"
+                if (-Not $(Test-Path $ActivityTargetDir))
+                {
+                    New-Item -ItemType Directory -Path $ActivityTargetDir | Out-Null
+                }
+                Foreach ($File in $Activity.files) 
+                {
+                    if ($File.Filename -ne ".")
+                    {
+                        $Hash2 = $($File.contenthash).substring(0,2)
+                        $Source = "$UnpackedBackupDirectory\files\$Hash2\$($File.contenthash)"
+                        $Destination = "$ActivityTargetDir\$($file.filename)"
+                        Write-Host -ForegroundColor Cyan "Copying $Destination"
+                        try{
+                            Copy-Item -Path $Source -Destination $Destination -ErrorAction Stop
+                        }
+                        catch {
+                            Write-Error "Couldn't copy file: $($file.filename): $_"
+                        }
+                    }             
+                }
+            }
         }
+        
     }
 
 #endregion
 
-#Expand-MoodleSite "$PSScriptRoot\Backups\HCC.mbz"
-
+Expand-MoodleSite "$PSScriptRoot\Backups\HCC.mbz"
 $Src = "$PSScriptRoot\Target\HCC\RawBackup"
-$target = "$PSScriptRoot\Target\HCC\ParsedBackup"
+$target = "$PSScriptRoot\Target\HCC"
 $MoodleSite = Get-ParsedMoodleSite -UnpackedBackupDirectory $Src
-
-Extract-SiteFiles -UnpackedBackupDirectory $Dir -Site $MoodleSite -TargetDirectory $target
+Extract-SiteFiles -UnpackedBackupDirectory $Src -Site $MoodleSite -TargetDirectory $target
