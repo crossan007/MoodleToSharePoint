@@ -6,6 +6,20 @@ if (-Not $(Get-Module 7Zip4Powershell))
 
 #region Funcitons
 
+    Function Remove-InvalidFileNameChars {
+    param(
+        [Parameter(Mandatory=$true,
+        Position=0,
+        ValueFromPipeline=$true,
+        ValueFromPipelineByPropertyName=$true)]
+        [String]$Name
+    )
+
+    $invalidChars = [IO.Path]::GetInvalidFileNameChars() -join ''
+    $re = "[{0}]" -f [RegEx]::Escape($invalidChars)
+    return ($Name -replace $re)
+    }
+
     Function Expand-TarGZ {
         Param(
             $Source,
@@ -40,6 +54,7 @@ if (-Not $(Get-Module 7Zip4Powershell))
         
         Foreach($Section in $MoodleBackup.contents.sections.section)
         {
+            $Section.Title = Remove-InvalidFileNameChars -Name $($Section.Title.Trim())
             $fileIDs = $([xml]$(Get-Content "$UnpackedBackupDirectory\$($section.directory)\inforef.xml")).inforef.fileref.file
 
             $Files =  Foreach($FileID in $FileIDs.id)
@@ -55,7 +70,7 @@ if (-Not $(Get-Module 7Zip4Powershell))
         $Activities = Foreach($Activity in $MoodleBackup.contents.activities.activity)
         {
             $fileIDs = $([xml]$(Get-Content "$UnpackedBackupDirectory\$($Activity.directory)\inforef.xml")).inforef.fileref.file
-
+            $Activity.Title = Remove-InvalidFileNameChars -Name $($Activity.Title.Trim())
             $Files =  Foreach($FileID in $FileIDs.id)
             {
                 $MoodleBackup.files | Where-Object {$_.id -eq $FileID}
@@ -140,7 +155,7 @@ if (-Not $(Get-Module 7Zip4Powershell))
 
 #endregion
 
-Expand-MoodleSite "$PSScriptRoot\Backups\HCC.mbz"
+#Expand-MoodleSite "$PSScriptRoot\Backups\HCC.mbz"
 $Src = "$PSScriptRoot\Target\HCC\RawBackup"
 $target = "$PSScriptRoot\Target\HCC"
 $MoodleSite = Get-ParsedMoodleSite -UnpackedBackupDirectory $Src
