@@ -81,7 +81,7 @@ if (-Not $(Get-Module 7Zip4Powershell))
         Foreach ($Section in $Site.Sections)
         {
             Write-Host -ForegroundColor Green "Starting Seciton: $($Section.Title) with $($Section.Files.Count) Files"
-            $SectionTargetDir = "$TargetDirectory\$($Section.Title)\"
+            $SectionTargetDir = "$TargetDirectory\Sections\$($Section.Title)"
             if (-Not $(Test-Path $SectionTargetDir))
             {
                 New-Item -ItemType Directory -Path $SectionTargetDir | Out-Null
@@ -105,7 +105,7 @@ if (-Not $(Get-Module 7Zip4Powershell))
         Foreach ($Activity in $Site.Activities)
         {
             Write-Host -ForegroundColor Green "Starting Activity: $($Activity.Title) with $($Activity.Files.Count) Files"
-            $ActivityTargetDir = "$TargetDirectory\$($Activity.Title)\"
+            $ActivityTargetDir = "$TargetDirectory\Activities\$($Activity.Title)"
             if (-Not $(Test-Path $ActivityTargetDir))
             {
                 New-Item -ItemType Directory -Path $ActivityTargetDir | Out-Null
@@ -132,7 +132,8 @@ if (-Not $(Get-Module 7Zip4Powershell))
 
 #Expand-MoodleSite "$PSScriptRoot\Backups\HCC.mbz"
 
-$Dir = "$PSScriptRoot\Target\HCC"
-$MoodleSite = Get-ParsedMoodleSite -UnpackedBackupDirectory $Dir
+$Src = "$PSScriptRoot\Target\HCC\RawBackup"
+$target = "$PSScriptRoot\Target\HCC\ParsedBackup"
+$MoodleSite = Get-ParsedMoodleSite -UnpackedBackupDirectory $Src
 
-Extract-SiteFiles -UnpackedBackupDirectory $Dir -Site $MoodleSite -TargetDirectory "$PSScriptRoot\Target\HCC-Files"
+Extract-SiteFiles -UnpackedBackupDirectory $Dir -Site $MoodleSite -TargetDirectory $target
