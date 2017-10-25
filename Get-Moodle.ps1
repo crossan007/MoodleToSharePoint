@@ -1,7 +1,7 @@
 
 if (-Not $(Get-Module 7Zip4Powershell))
 {
-    Install-Module -Name 7Zip4Powershell
+    #Install-Module -Name 7Zip4Powershell
 }
 
 #region Funcitons
@@ -25,6 +25,7 @@ if (-Not $(Get-Module 7Zip4Powershell))
             $Source,
             $Destination
         )
+        Get-ChildItem "$PSScriptRoot\Temp" | Remove-Item
         Expand-7Zip -ArchiveFileName $Source -TargetPath "$PSScriptRoot\Temp"
         $File = $(Get-ChildItem "$PSScriptRoot\Temp" -Filter *.tar).FullName
         Expand-7Zip -ArchiveFileName $File -TargetPath $Destination
@@ -38,6 +39,7 @@ if (-Not $(Get-Module 7Zip4Powershell))
             $BackupFile
         )
         $SiteName = $(Get-Item $BackupFile).BaseName
+        mkdir "$PSScriptRoot\Target\$SiteName"
         Expand-TarGZ -Source $BackupFile -Destination "$PSScriptRoot\Target\$SiteName\RawBackup"
     }
 
@@ -150,13 +152,21 @@ if (-Not $(Get-Module 7Zip4Powershell))
                 }
             }
         }
-        
+    }
+
+    Function Upload-MoodleToSharePoint 
+    {
+        Param(
+            $UnpackedBackupDirectory,
+            $Site,
+            $TargetDirectory
+        )
     }
 
 #endregion
 
-#Expand-MoodleSite "$PSScriptRoot\Backups\HCC.mbz"
-$Src = "$PSScriptRoot\Target\HCC\RawBackup"
-$target = "$PSScriptRoot\Target\HCC"
+Expand-MoodleSite "$PSScriptRoot\Backups\HRDirectors.mbz"
+$Src = "$PSScriptRoot\Target\HRDirectors\RawBackup"
+$target = "$PSScriptRoot\Target\HRDirectors"
 $MoodleSite = Get-ParsedMoodleSite -UnpackedBackupDirectory $Src
-Extract-SiteFiles -UnpackedBackupDirectory $Src -Site $MoodleSite -TargetDirectory $target
+#Extract-SiteFiles -UnpackedBackupDirectory $Src -Site $MoodleSite -TargetDirectory $target
